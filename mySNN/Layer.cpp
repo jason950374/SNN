@@ -122,6 +122,7 @@ PreSpkEvent Layer::postSynEvent(PostSpkEvent inputEvent, double endTime, bool is
 
 vector<double> Layer::getGrade(vector<double> grade_post){
 	//TODO getGrade
+
 	vector<double> grade_pre(synapses.size(), 0.0);
 	assert(grade_post.size() == neuronAmount);
 	//iterate pre index
