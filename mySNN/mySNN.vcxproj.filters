@@ -34,20 +34,20 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Synapse.cpp">
-      <Filter>資源檔</Filter>
+    <ClCompile Include="Layer.cpp">
+      <Filter>原始程式檔</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp">
-      <Filter>資源檔</Filter>
-    </ClCompile>
-    <ClCompile Include="SpkEvent.cpp">
-      <Filter>資源檔</Filter>
-    </ClCompile>
-    <ClCompile Include="Layer.cpp">
-      <Filter>資源檔</Filter>
+      <Filter>原始程式檔</Filter>
     </ClCompile>
     <ClCompile Include="SNN.cpp">
-      <Filter>資源檔</Filter>
+      <Filter>原始程式檔</Filter>
+    </ClCompile>
+    <ClCompile Include="SpkEvent.cpp">
+      <Filter>原始程式檔</Filter>
+    </ClCompile>
+    <ClCompile Include="Synapse.cpp">
+      <Filter>原始程式檔</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
