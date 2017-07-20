@@ -22,7 +22,6 @@ PostSpkEvent Synapse::preSynEvent(PreSpkEvent e){
 }
 
 
-
 /***********************************************************
 get gradient for back propagation (d(Loss) / d(pre fire time))
 & set gradient for delay\weight of this Synapse at same time

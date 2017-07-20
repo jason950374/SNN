@@ -114,7 +114,12 @@ PreSpkEvent Layer::postSynEvent(PostSpkEvent inputEvent, double endTime, bool is
 		finishedEventRef[inputEvent.preIndex][inputEvent.postIndex].push_back(finishedEvent[inputEvent.postIndex].size() - 1);
 	}
 	else {
-		finishedEvent[inputEvent.postIndex][0] = inputEvent;
+		if (!finishedEvent[inputEvent.postIndex].empty()) {
+			finishedEvent[inputEvent.postIndex][0] = inputEvent;
+		}			
+		else {
+			finishedEvent[inputEvent.postIndex].push_back(inputEvent);
+		}
 	}
 	
 	return preSpkEvent;
