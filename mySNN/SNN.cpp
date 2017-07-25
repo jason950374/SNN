@@ -12,24 +12,35 @@ SNN::SNN(vector<unsigned int> neuron_nums, unsigned int input_num){
 		this->layers.push_back(Layer(*it, *(it-1)));
 	}
 	layerNum = layers.size();
-	output = vector<vector<PreSpkEvent>>();
+	allOutput = vector<vector<PreSpkEvent>>(*prev(neuron_nums.end()), vector<PreSpkEvent>());
+	outputTime = vector<double>(*prev(neuron_nums.end()), 0);
 	eventPool = priority_queue<PostSpkEvent, vector<PostSpkEvent>, greater<PostSpkEvent>>();
 }
 
 void SNN::train(vector<vector<double>> inputs){
-	output.clear();
+	allOutput.clear();
 	for (auto it = inputs.begin(); it < inputs.end(); it++) {
-		output.push_back(forward(*it));
-		resetLayers();
+		auto tempOut = forward(*it);
+		allOutput.push_back(tempOut);
+		for (auto it2 = outputTime.begin(); it2 < outputTime.end(); it2++){
+			*it2 = INFINITY;
+		}
+		for (auto it2 = tempOut.begin(); it2 < tempOut.end(); it2++){
+			if (outputTime[it2->preIndex] < it2->time){
+				outputTime[it2->preIndex] = it2->time;
+			}
+		}
+		
 		backward(*it);
 		applyGrade();
+		resetLayers();
 	}
 }
 
 void SNN::test(vector<vector<double>> inputs){
-	output.clear();
+	allOutput.clear();
 	for (auto it = inputs.begin(); it < inputs.end(); it++) {
-		output.push_back(forward(*it, false));
+		allOutput.push_back(forward(*it, false));
 	}
 }
 
@@ -65,19 +76,19 @@ vector<PreSpkEvent> SNN::forward(vector<double> input, bool isTrain){
 		PreSpkEvent newEvent = layers[curEvent.layer].postSynEvent(curEvent, secondEvent.time, isTrain);
 		newEvent.layer = curEvent.layer + 1;
 		// not output
-		if (newEvent.layer < layerNum) {
-			if (newEvent.time >= 0) {
+		if (newEvent.time >= 0) {
+			if (newEvent.layer < layerNum) {
 				vector<PostSpkEvent> newEvents = layers[newEvent.layer].preSynEvent(newEvent);
 				for (auto it = newEvents.begin(); it < newEvents.end(); it++) {
 					eventPool.push(*it);
 				}
 			}
-		}
-		else {
-			output.push_back(newEvent);
-			if (!isTrain) {
-				//inference, just need first spike
-				return output;
+			else {
+				output.push_back(newEvent);
+				if (!isTrain) {
+					//inference, just need first spike
+					return output;
+				}
 			}
 		}
 	}
@@ -85,11 +96,26 @@ vector<PreSpkEvent> SNN::forward(vector<double> input, bool isTrain){
 }
 
 void SNN::backward(vector<double> input){
-	//gradient; //from loss function
-	for (auto it = prev(layers.end()); it >= layers.begin(); --it) {
-		//gradient = it->getGrade(gradient);
+	//from loss function
+	unsigned int outNum = layers[layerNum - 1].getNeuronAmount();
+	vector<double> gradient = vector<double>(outNum, INFINITY);
+	double minTime = INFINITY;
+	for (unsigned int i = 0; i < outNum; i++){
+		minTime = min(minTime, outputTime[i]);
 	}
-	// TODO backward
+	for (unsigned int i = 0; i < outNum; i++){
+		gradient[i] = outputTime[i] - minTime;
+	}
+	vector<vector<NodeBP>> postNodes = vector<vector<NodeBP>>(outNum, vector<NodeBP>());
+	for (unsigned int i = 0; i < outNum; i++) {
+		postNodes[i].push_back(NodeBP( outputTime[i], i));
+	}
+	for (int i = layerNum; i > 0; i--) {
+		vector<vector<NodeBP>> preNodes;
+		preNodes = layers[i - 1].getPreNodeBPs(postNodes);
+		gradient = layers[i - 1].getGrade(gradient, preNodes, postNodes);
+		postNodes = preNodes;
+	}
 }
 
 void SNN::applyGrade(){

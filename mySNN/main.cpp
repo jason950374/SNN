@@ -47,15 +47,15 @@ int main(void) {
 	vector<unsigned int> neuron_nums = vector<unsigned int>({3, 3});
 
 	SNN snn = SNN(neuron_nums, 4);
-
-	//snn.train();
+	
 	vector<vector<double>> feature_vector(150, vector<double>(4, 0));
 	for (unsigned int i = 0; i < 150; i++) {
 		for (unsigned int j = 0; j < 4; j++)
 			feature_vector[i][j] = feature[j][i];
 	}
+	snn.train(feature_vector);
 	snn.test(feature_vector);
-
+	
 	return 0;
 }
 

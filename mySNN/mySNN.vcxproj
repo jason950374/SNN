@@ -22,6 +22,7 @@
     <None Include="bezdekIris.data" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="NodeBP.h" />
     <ClInclude Include="Layer.h" />
     <ClInclude Include="SNN.h" />
     <ClInclude Include="SpkEvent.h" />
@@ -98,6 +99,9 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
     </ClCompile>
+    <Link>
+      <AdditionalOptions>/debug %(AdditionalOptions)</AdditionalOptions>
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>

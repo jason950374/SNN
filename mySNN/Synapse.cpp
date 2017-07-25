@@ -24,13 +24,13 @@ PostSpkEvent Synapse::preSynEvent(PreSpkEvent e){
 
 /***********************************************************
 get gradient for back propagation (d(Loss) / d(pre fire time))
-& set gradient for delay\weight of this Synapse at same time
+& add gradient for delay\weight of this Synapse at same time
 post_Grade is d(post fire time) / d(post membrane potential)
 ************************************************************/
-double Synapse::get_setGrade(double post_Grade, double time, double leakage, double EPSC_degrade){
+double Synapse::get_addGrade(double post_Grade, double time, double leakage, double EPSC_degrade){
 	double pre_Grade = post_Grade * (leakage * exp(-leakage * time) - EPSC_degrade * exp(-EPSC_degrade * time));
-	gradeDelay = pre_Grade;
-	gradeWeight = post_Grade * (exp(-leakage * time) - exp(-EPSC_degrade * time));
+	gradeDelay += pre_Grade;
+	gradeWeight += post_Grade * (exp(-leakage * time) - exp(-EPSC_degrade * time));
 
 	return pre_Grade;
 }

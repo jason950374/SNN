@@ -14,8 +14,9 @@ public:
 	void test(vector<vector<double>> inputs);
 private:
 	unsigned int layerNum;
-	vector<vector<PreSpkEvent>> output; //save output of output layer
-	                                    // [input index][event order]
+	vector<vector<PreSpkEvent>> allOutput; //save output of output layer
+	                                       // [input index][event order]
+	vector<double> outputTime;             //for training
 	priority_queue<PostSpkEvent, vector<PostSpkEvent>, greater<PostSpkEvent>> eventPool;
 	vector<Layer> layers;
 	void resetLayers();

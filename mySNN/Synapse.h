@@ -12,11 +12,13 @@ public:
 
 	/***********************************************************
 	get gradient for back propagation 
-	 & set gradient for delay\weight of this Synapse at same time
+	 & add gradient for delay\weight of this Synapse at same time
 	post_Grade is d(post fire time) / d(post membrane potential)
 	************************************************************/
-	double get_setGrade(double post_Grade, double time, double leakage, double EPSC_degrade);
+	double get_addGrade(double post_Grade, double time, double leakage, double EPSC_degrade);
+	void resetGrade(); //TODO
 	
+
 	//get - (d(post membrane potential) / (pre fire time))
 	double getGradeTemp(double time, double leakage, double EPSC_degrade);
 private:

@@ -2,6 +2,7 @@
 #include <vector>
 #include "SpkEvent.h"
 #include "Synapse.h"
+#include "NodeBP.h"
 
 using namespace std;
 
@@ -13,7 +14,9 @@ public:
 									  //[pre][post]
 	vector<PostSpkEvent> preSynEvent(PreSpkEvent inputEvent);
 	PreSpkEvent postSynEvent(PostSpkEvent inputEvent, double endTime, bool isTrain = true);
-	vector<double> getGrade(vector<double> grade_pre);
+	vector<double> getGrade(vector<double> grade_pre, vector<vector<NodeBP>> preNodes, vector<vector<NodeBP>> postNodes);
+	vector<vector<NodeBP>> getPreNodeBPs(vector<vector<NodeBP>> postNodeBPs);
+	unsigned int getNeuronAmount();
 private:
 	unsigned int neuronAmount;
 	double leakage;
@@ -23,6 +26,7 @@ private:
 												   // use the order of time
 	vector<vector<vector<unsigned int>>> finishedEventRef; // use the order of pre-neuron index, the array save the index
 														   // [pre][post]
+	
 	vector<double> leakage_coe;
 	vector<double> EPSC_degrade_coe;
 	vector<unsigned int> spikeCnt;

@@ -6,6 +6,7 @@
 #include <assert.h>
 #include "Layer.h"
 #include "SpkEvent.h"
+#include "NodeBP.h"
 
 using namespace std;
 
@@ -33,6 +34,8 @@ Layer::Layer(unsigned int neuronAmount, unsigned int prLayerNeuronAmount){
 		vector<vector<unsigned int>>(neuronAmount, vector<unsigned int>()));
 	leakage_coe = vector<double>(neuronAmount, 0);
 	EPSC_degrade_coe = vector<double>(neuronAmount, 0);
+
+	sendEvent = vector<vector<PreSpkEvent>>(neuronAmount, vector<PreSpkEvent>());
 }
 
 void Layer::resetLayer(){
@@ -41,8 +44,17 @@ void Layer::resetLayer(){
 	for (unsigned int i = 0; i < leakage_coe.size(); i++) {
 		leakage_coe[i] = 0;
 		EPSC_degrade_coe[i] = 0;
-		sendEvent.clear();
-		finishedEvent.clear();
+		for (auto it = sendEvent.begin(); it < sendEvent.end(); it++){
+			it->clear();
+		}
+		for (auto it = finishedEvent.begin(); it < finishedEvent.end(); it++){
+			it->clear();
+		}
+		for (auto it = finishedEventRef.begin(); it < finishedEventRef.end(); it++) {
+			for (auto it2 = it->begin(); it2 < it->end(); it2++) {
+				it2->clear();
+			}
+		}
 	}
 }
 
@@ -125,35 +137,83 @@ PreSpkEvent Layer::postSynEvent(PostSpkEvent inputEvent, double endTime, bool is
 	return preSpkEvent;
 }
 
-vector<double> Layer::getGrade(vector<double> grade_post){
-	//TODO getGrade
+//vector<double> Layer::getGrade(vector<double> grade_post){
+//	vector<double> grade_pre(synapses.size(), 0.0);
+//	assert(grade_post.size() == neuronAmount);
+//	//iterate pre index
+//	for (unsigned int  i = 0; i < synapses.size(); i++) {
+//		double gradeTemp = 0;
+//		//iterate post index
+//		for (unsigned int  j = 0; j < grade_post.size(); j++) {
+//			auto it_post = sendEvent[j].begin();
+//			for (auto it = finishedEventRef[i][j].begin(); it < finishedEventRef[i][j].end(); it++) {
+//				if (it_post->time < finishedEvent[i][*it].time){
+//					it_post = next(it_post);
+//				}
+//				double time = it_post->time - finishedEvent[i][*it].time;
+//				gradeTemp += (synapses[i][j]).getGradeTemp(time, leakage, EPSC_degrade);
+//			}
+//		}
+//		for (unsigned int  j = 0; j < grade_post.size(); j++) {
+//			auto it_post = sendEvent[j].begin();
+//			/*for (auto it = finishedEventRef[i][j].begin(); it < finishedEventRef[i][j].end(); it++) {
+//				if (it_post->time < finishedEvent[i][*it].time) {
+//					it_post = next(it_post);
+//				}
+//				double time = it_post->time - finishedEvent[i][*it].time;
+//			}*/
+//			// 
+//			grade_pre[i] += (synapses[i][j]).get_setGrade(grade_post[j] / gradeTemp, time, leakage, EPSC_degrade);
+//		}
+//	}
+//	return grade_pre;
+//}
 
+vector<double> Layer::getGrade(vector<double> grade_post, vector<vector<NodeBP>> preNodes, vector<vector<NodeBP>> postNodes){
 	vector<double> grade_pre(synapses.size(), 0.0);
 	assert(grade_post.size() == neuronAmount);
-	//iterate pre index
-	for (unsigned int  i = 0; i < synapses.size(); i++) {
+	assert(postNodes.size() == neuronAmount);
+	for (unsigned int i = 0; i < synapses.size(); i++) {
 		double gradeTemp = 0;
 		//iterate post index
 		for (unsigned int  j = 0; j < grade_post.size(); j++) {
-			auto it_post = sendEvent[j].begin();
-			for (auto it = finishedEventRef[i][j].begin(); it < finishedEventRef[i][j].end(); it++) {
-				if (it_post->time < finishedEvent[i][*it].time){
-					it_post = next(it_post);
-				}
-				double time = it_post->time - finishedEvent[i][*it].time;
-				gradeTemp += (synapses[i][j]).getGradeTemp(time, leakage, EPSC_degrade);
+			for (auto it = postNodes[j].begin(); it < postNodes[j].end(); it++){
+				gradeTemp += (synapses[i][j]).getGradeTemp(it->time - preNodes[i][it->preIndex].time, 
+					leakage, EPSC_degrade);
 			}
 		}
 		for (unsigned int  j = 0; j < grade_post.size(); j++) {
 			auto it_post = sendEvent[j].begin();
-			for (auto it = finishedEventRef[i][j].begin(); it < finishedEventRef[i][j].end(); it++) {
-				if (it_post->time < finishedEvent[i][*it].time) {
-					it_post = next(it_post);
-				}
-				double time = it_post->time - finishedEvent[i][*it].time;
+			for (auto it = postNodes[j].begin(); it < postNodes[j].end(); it++){
+				grade_pre[i] += (synapses[i][j]).get_addGrade(grade_post[j] / gradeTemp, 
+					it->time - preNodes[i][it->preIndex].time, leakage, EPSC_degrade);
 			}
-			//grade_pre[i] += (synapses[i][j]).get_setGrade(grade_post[j] / gradeTemp, time, leakage, EPSC_degrade);
 		}
 	}
 	return grade_pre;
+}
+
+vector<vector<NodeBP>> Layer::getPreNodeBPs(vector<vector<NodeBP>> postNodeBPs){
+	vector<vector<NodeBP>> preNodeBPs = vector<vector<NodeBP>>(synapses.size(), vector<NodeBP>());
+	assert(postNodeBPs.size() == neuronAmount);
+	for (unsigned int i = 0; i < neuronAmount; i++) {
+		for (auto it = postNodeBPs[i].begin(); it < postNodeBPs[i].end(); it++) {
+			for (unsigned int j = 0; j < synapses.size(); j++) {
+				double time = INFINITY;
+				for (auto it2 = finishedEventRef[j][i].begin(); it2 < finishedEventRef[j][i].end(); it2++) {
+					// TODO delta tMax???
+					if (finishedEvent[i][*it2].time < it->time) {
+						time = finishedEvent[i][*it2].time;
+					}
+				}
+				preNodeBPs[j].push_back(NodeBP(time, j));
+			}
+		}
+	}
+
+	return preNodeBPs;
+}
+
+unsigned int Layer::getNeuronAmount(){
+	return neuronAmount;
 }
