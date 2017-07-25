@@ -26,7 +26,6 @@ private:
 												   // use the order of time
 	vector<vector<vector<unsigned int>>> finishedEventRef; // use the order of pre-neuron index, the array save the index
 														   // [pre][post]
-	
 	vector<double> leakage_coe;
 	vector<double> EPSC_degrade_coe;
 	vector<unsigned int> spikeCnt;

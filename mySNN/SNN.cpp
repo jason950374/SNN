@@ -41,6 +41,7 @@ void SNN::test(vector<vector<double>> inputs){
 	allOutput.clear();
 	for (auto it = inputs.begin(); it < inputs.end(); it++) {
 		allOutput.push_back(forward(*it, false));
+		resetLayers();
 	}
 }
 

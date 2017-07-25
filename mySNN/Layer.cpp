@@ -55,6 +55,9 @@ void Layer::resetLayer(){
 				it2->clear();
 			}
 		}
+		for (unsigned int j = 0; j < synapses.size(); j++) {
+			synapses[j][i].resetGrade();
+		}
 	}
 }
 

@@ -35,6 +35,11 @@ double Synapse::get_addGrade(double post_Grade, double time, double leakage, dou
 	return pre_Grade;
 }
 
+void Synapse::resetGrade(){
+	gradeDelay = 0;
+	gradeWeight = 0;
+}
+
 
 //get - (d(post membrane potential) / (pre fire time))
 double Synapse::getGradeTemp(double time, double leakage, double EPSC_degrade) {
