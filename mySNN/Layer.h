@@ -14,8 +14,14 @@ public:
 									  //[pre][post]
 	vector<PostSpkEvent> preSynEvent(PreSpkEvent inputEvent);
 	PreSpkEvent postSynEvent(PostSpkEvent inputEvent, double endTime, bool isTrain = true);
-	vector<double> getGrade(vector<double> grade_pre, vector<vector<NodeBP>> preNodes, vector<vector<NodeBP>> postNodes);
-	vector<vector<NodeBP>> getPreNodeBPs(vector<vector<NodeBP>> postNodeBPs);
+	vector<double> getGrade(vector<double> grade_pre, vector<vector<NodeReceiveBP>> preNodes, vector<vector<NodeSentBP>> postNodes);
+	
+	/********************************************************************************
+	get NodeReceiveBP-NodeSentBP relation acording to relative time of sent and receive spike
+	*********************************************************************************/
+	vector<vector<NodeReceiveBP>> getNodeReceiveBP(vector<vector<NodeSentBP>> postNodeBPs);  
+	//add delay, BP for previous layer
+	vector<vector<NodeSentBP>> getNodeSentBP(vector<vector<NodeReceiveBP>> preNodeBPs);     
 	unsigned int getNeuronAmount();
 private:
 	unsigned int neuronAmount;

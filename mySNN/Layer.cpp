@@ -172,7 +172,7 @@ PreSpkEvent Layer::postSynEvent(PostSpkEvent inputEvent, double endTime, bool is
 //	return grade_pre;
 //}
 
-vector<double> Layer::getGrade(vector<double> grade_post, vector<vector<NodeBP>> preNodes, vector<vector<NodeBP>> postNodes){
+vector<double> Layer::getGrade(vector<double> grade_post, vector<vector<NodeReceiveBP>> preNodes, vector<vector<NodeSentBP>> postNodes){
 	vector<double> grade_pre(synapses.size(), 0.0);
 	assert(grade_post.size() == neuronAmount);
 	assert(postNodes.size() == neuronAmount);
@@ -196,8 +196,8 @@ vector<double> Layer::getGrade(vector<double> grade_post, vector<vector<NodeBP>>
 	return grade_pre;
 }
 
-vector<vector<NodeBP>> Layer::getPreNodeBPs(vector<vector<NodeBP>> postNodeBPs){
-	vector<vector<NodeBP>> preNodeBPs = vector<vector<NodeBP>>(synapses.size(), vector<NodeBP>());
+vector<vector<NodeReceiveBP>> Layer::getNodeReceiveBP(vector<vector<NodeSentBP>> postNodeBPs){
+	vector<vector<NodeReceiveBP>> preNodeBPs = vector<vector<NodeReceiveBP>>(synapses.size(), vector<NodeReceiveBP>());
 	assert(postNodeBPs.size() == neuronAmount);
 	for (unsigned int i = 0; i < neuronAmount; i++) {
 		for (auto it = postNodeBPs[i].begin(); it < postNodeBPs[i].end(); it++) {
@@ -209,12 +209,23 @@ vector<vector<NodeBP>> Layer::getPreNodeBPs(vector<vector<NodeBP>> postNodeBPs){
 						time = finishedEvent[i][*it2].time;
 					}
 				}
-				preNodeBPs[j].push_back(NodeBP(time, j));
+				it->preIndex = preNodeBPs[j].size();
+				preNodeBPs[j].push_back(NodeReceiveBP(time, i));
 			}
 		}
 	}
 
 	return preNodeBPs;
+}
+
+vector<vector<NodeSentBP>> Layer::getNodeSentBP(vector<vector<NodeReceiveBP>> preNodeBPs){
+	vector<vector<NodeSentBP>> postNodeBPs = vector<vector<NodeSentBP>>(preNodeBPs.size(), vector<NodeSentBP>());
+	for (unsigned int i = 0; i < synapses.size(); i++) {
+		for (auto it = preNodeBPs[i].begin(); it < preNodeBPs[i].end(); it++) {
+			postNodeBPs[i].push_back(NodeSentBP(it->time + synapses[i][it->postIndex].delay));
+		}
+	}
+	return postNodeBPs;
 }
 
 unsigned int Layer::getNeuronAmount(){

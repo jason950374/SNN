@@ -101,21 +101,22 @@ void SNN::backward(vector<double> input){
 	unsigned int outNum = layers[layerNum - 1].getNeuronAmount();
 	vector<double> gradient = vector<double>(outNum, INFINITY);
 	double minTime = INFINITY;
+	//TODO something wrong with this
 	for (unsigned int i = 0; i < outNum; i++){
 		minTime = min(minTime, outputTime[i]);
 	}
 	for (unsigned int i = 0; i < outNum; i++){
 		gradient[i] = outputTime[i] - minTime;
 	}
-	vector<vector<NodeBP>> postNodes = vector<vector<NodeBP>>(outNum, vector<NodeBP>());
+	vector<vector<NodeSentBP>> postNodes = vector<vector<NodeSentBP>>(outNum, vector<NodeSentBP>());
 	for (unsigned int i = 0; i < outNum; i++) {
-		postNodes[i].push_back(NodeBP( outputTime[i], i));
+		postNodes[i].push_back(NodeSentBP(outputTime[i]));
 	}
 	for (int i = layerNum; i > 0; i--) {
-		vector<vector<NodeBP>> preNodes;
-		preNodes = layers[i - 1].getPreNodeBPs(postNodes);
+		vector<vector<NodeReceiveBP>> preNodes;
+		preNodes = layers[i - 1].getNodeReceiveBP(postNodes);
 		gradient = layers[i - 1].getGrade(gradient, preNodes, postNodes);
-		postNodes = preNodes;
+		postNodes = layers[i - 1].getNodeSentBP(preNodes);
 	}
 }
 
