@@ -8,6 +8,9 @@
 #include "SpkEvent.h"
 #include "NodeBP.h"
 
+#define EPSILON 0.00000000001
+#define BLANCE_COE 1.1
+
 using namespace std;
 
 Layer::Layer(unsigned int neuronAmount, unsigned int prLayerNeuronAmount){
@@ -64,7 +67,9 @@ void Layer::resetLayer(){
 vector<PostSpkEvent> Layer::preSynEvent(PreSpkEvent inputEvent){
 	vector<PostSpkEvent> postSpkEvents;
 	for (unsigned int i = 0; i < neuronAmount; i++) {
-		postSpkEvents.push_back(synapses[inputEvent.preIndex][i].preSynEvent(inputEvent));
+		PostSpkEvent temp = synapses[inputEvent.preIndex][i].preSynEvent(inputEvent);
+		temp.postIndex = i;
+		postSpkEvents.push_back(temp);
 	}
 	return postSpkEvents;
 }
@@ -73,23 +78,29 @@ PreSpkEvent Layer::postSynEvent(PostSpkEvent inputEvent, double endTime, bool is
 	PreSpkEvent preSpkEvent;
 	// get curve
 	double beginTime = inputEvent.time;
-	double lastTime = 0;
+	double lastTime = INFINITY;
+	assert(inputEvent.time >= 0);
 	if (!finishedEvent[inputEvent.postIndex].empty()) {
 		//finishedEvent[inputEvent.postIndex act like stack here, need to push_back with order of time 
 		lastTime = finishedEvent[inputEvent.postIndex].back().time;
 	}
-	leakage_coe[inputEvent.postIndex] = leakage_coe[inputEvent.postIndex] * exp(-leakage * (beginTime - lastTime));
-	EPSC_degrade_coe[inputEvent.postIndex] = EPSC_degrade_coe[inputEvent.postIndex] * exp(-EPSC_degrade * (beginTime - lastTime));
+	if (!isinf(lastTime)) {
+		leakage_coe[inputEvent.postIndex] = leakage_coe[inputEvent.postIndex] * exp(-leakage * (beginTime - lastTime));
+		EPSC_degrade_coe[inputEvent.postIndex] = EPSC_degrade_coe[inputEvent.postIndex] * exp(-EPSC_degrade * (beginTime - lastTime));
+	}
 
 	leakage_coe[inputEvent.postIndex] += inputEvent.strenth;
 	EPSC_degrade_coe[inputEvent.postIndex] += inputEvent.strenth;
 
 	// get max time
 	double tmax;
-	tmax = beginTime + log(leakage_coe[inputEvent.postIndex] / EPSC_degrade_coe[inputEvent.postIndex]) / (leakage - EPSC_degrade);
+	tmax = beginTime + log(leakage_coe[inputEvent.postIndex] / EPSC_degrade_coe[inputEvent.postIndex]) / (EPSC_degrade-leakage);
 	endTime = min(tmax, endTime);
-	double value_begin = leakage_coe[inputEvent.postIndex] *exp(-leakage*beginTime) 
+	double value_begin;
+	//TODO last time
+	value_begin = leakage_coe[inputEvent.postIndex] * exp(-leakage*beginTime)
 		- EPSC_degrade_coe[inputEvent.postIndex] *exp(-EPSC_degrade*beginTime);
+	assert(value_begin < threshold[inputEvent.postIndex]);
 	double value_end = leakage_coe[inputEvent.postIndex] *exp(-leakage*endTime) 
 		- EPSC_degrade_coe[inputEvent.postIndex] *exp(-EPSC_degrade*endTime);
 	if (value_end < threshold[inputEvent.postIndex]) {
@@ -98,7 +109,7 @@ PreSpkEvent Layer::postSynEvent(PostSpkEvent inputEvent, double endTime, bool is
 	}
 
 	// get spiketime
-	while ((endTime - beginTime) < 0.01 /*precision*/) {
+	while (abs(endTime - beginTime) > 0.01 /*precision*/) {
 		double slope_up;
 		//Derivative at t = begin
 		slope_up = leakage_coe[inputEvent.postIndex] * leakage * exp(-leakage*beginTime) -
@@ -124,7 +135,7 @@ PreSpkEvent Layer::postSynEvent(PostSpkEvent inputEvent, double endTime, bool is
 	leakage_coe[inputEvent.postIndex] = 0;
 	EPSC_degrade_coe[inputEvent.postIndex] = 0;
 
-	if (isTrain) {
+	if (isTrain) {		
 		finishedEvent[inputEvent.postIndex].push_back(inputEvent);
 		finishedEventRef[inputEvent.preIndex][inputEvent.postIndex].push_back(finishedEvent[inputEvent.postIndex].size() - 1);
 	}
@@ -136,41 +147,10 @@ PreSpkEvent Layer::postSynEvent(PostSpkEvent inputEvent, double endTime, bool is
 			finishedEvent[inputEvent.postIndex].push_back(inputEvent);
 		}
 	}
-	
+	spikeCnt[preSpkEvent.preIndex]++;
+	assert(inputEvent.time <= preSpkEvent.time);
 	return preSpkEvent;
 }
-
-//vector<double> Layer::getGrade(vector<double> grade_post){
-//	vector<double> grade_pre(synapses.size(), 0.0);
-//	assert(grade_post.size() == neuronAmount);
-//	//iterate pre index
-//	for (unsigned int  i = 0; i < synapses.size(); i++) {
-//		double gradeTemp = 0;
-//		//iterate post index
-//		for (unsigned int  j = 0; j < grade_post.size(); j++) {
-//			auto it_post = sendEvent[j].begin();
-//			for (auto it = finishedEventRef[i][j].begin(); it < finishedEventRef[i][j].end(); it++) {
-//				if (it_post->time < finishedEvent[i][*it].time){
-//					it_post = next(it_post);
-//				}
-//				double time = it_post->time - finishedEvent[i][*it].time;
-//				gradeTemp += (synapses[i][j]).getGradeTemp(time, leakage, EPSC_degrade);
-//			}
-//		}
-//		for (unsigned int  j = 0; j < grade_post.size(); j++) {
-//			auto it_post = sendEvent[j].begin();
-//			/*for (auto it = finishedEventRef[i][j].begin(); it < finishedEventRef[i][j].end(); it++) {
-//				if (it_post->time < finishedEvent[i][*it].time) {
-//					it_post = next(it_post);
-//				}
-//				double time = it_post->time - finishedEvent[i][*it].time;
-//			}*/
-//			// 
-//			grade_pre[i] += (synapses[i][j]).get_setGrade(grade_post[j] / gradeTemp, time, leakage, EPSC_degrade);
-//		}
-//	}
-//	return grade_pre;
-//}
 
 vector<double> Layer::getGrade(vector<double> grade_post, vector<vector<NodeReceiveBP>> preNodes, vector<vector<NodeSentBP>> postNodes){
 	vector<double> grade_pre(synapses.size(), 0.0);
@@ -181,15 +161,17 @@ vector<double> Layer::getGrade(vector<double> grade_post, vector<vector<NodeRece
 		//iterate post index
 		for (unsigned int  j = 0; j < grade_post.size(); j++) {
 			for (auto it = postNodes[j].begin(); it < postNodes[j].end(); it++){
-				gradeTemp += (synapses[i][j]).getGradeTemp(it->time - preNodes[i][it->preIndex].time, 
-					leakage, EPSC_degrade);
+				if (!isinf(preNodes[i][it->preIndex].time))
+					gradeTemp += (synapses[i][j]).getGradeTemp(it->time - preNodes[i][it->preIndex].time, 
+						leakage, EPSC_degrade);
 			}
 		}
 		for (unsigned int  j = 0; j < grade_post.size(); j++) {
-			auto it_post = sendEvent[j].begin();
+			assert(!isinf(grade_post[j]));
 			for (auto it = postNodes[j].begin(); it < postNodes[j].end(); it++){
-				grade_pre[i] += (synapses[i][j]).get_addGrade(grade_post[j] / gradeTemp, 
-					it->time - preNodes[i][it->preIndex].time, leakage, EPSC_degrade);
+				if(!isinf(it->time) && !isinf(preNodes[i][it->preIndex].time))
+					grade_pre[i] += (synapses[i][j]).get_addGrade(grade_post[j] / (gradeTemp + EPSILON),
+						it->time - preNodes[i][it->preIndex].time, leakage, EPSC_degrade);
 			}
 		}
 	}
@@ -210,11 +192,11 @@ vector<vector<NodeReceiveBP>> Layer::getNodeReceiveBP(vector<vector<NodeSentBP>>
 					}
 				}
 				it->preIndex = preNodeBPs[j].size();
+				assert(time > 0);
 				preNodeBPs[j].push_back(NodeReceiveBP(time, i));
 			}
 		}
 	}
-
 	return preNodeBPs;
 }
 
@@ -222,10 +204,30 @@ vector<vector<NodeSentBP>> Layer::getNodeSentBP(vector<vector<NodeReceiveBP>> pr
 	vector<vector<NodeSentBP>> postNodeBPs = vector<vector<NodeSentBP>>(preNodeBPs.size(), vector<NodeSentBP>());
 	for (unsigned int i = 0; i < synapses.size(); i++) {
 		for (auto it = preNodeBPs[i].begin(); it < preNodeBPs[i].end(); it++) {
+			assert(it->time > 0);
 			postNodeBPs[i].push_back(NodeSentBP(it->time + synapses[i][it->postIndex].delay));
 		}
 	}
 	return postNodeBPs;
+}
+
+void Layer::applyGrade(double learningRate){
+	for (unsigned int i = 0; i < synapses.size(); i++) {
+		for (unsigned int j = 0; j < neuronAmount; j++) {
+			synapses[i][j].applyGrade(learningRate);
+		}
+	}
+}
+
+void Layer::balance(){
+	for (unsigned int i = 0; i < neuronAmount; i++) {
+		for (unsigned int j = 0; j < synapses.size(); j++) {
+			if(spikeCnt[i] == 0)
+				synapses[j][i].weight = synapses[j][i].weight * BLANCE_COE;
+			else if(spikeCnt[i] > 2)
+				synapses[j][i].weight = synapses[j][i].weight / BLANCE_COE;
+		}
+	}
 }
 
 unsigned int Layer::getNeuronAmount(){

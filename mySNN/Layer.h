@@ -21,7 +21,9 @@ public:
 	*********************************************************************************/
 	vector<vector<NodeReceiveBP>> getNodeReceiveBP(vector<vector<NodeSentBP>> postNodeBPs);  
 	//add delay, BP for previous layer
-	vector<vector<NodeSentBP>> getNodeSentBP(vector<vector<NodeReceiveBP>> preNodeBPs);     
+	vector<vector<NodeSentBP>> getNodeSentBP(vector<vector<NodeReceiveBP>> preNodeBPs);
+	void applyGrade(double learningRate);
+	void balance();
 	unsigned int getNeuronAmount();
 private:
 	unsigned int neuronAmount;

@@ -17,7 +17,7 @@ public:
 	************************************************************/
 	double get_addGrade(double post_Grade, double time, double leakage, double EPSC_degrade);
 	void resetGrade(); 
-	
+	void applyGrade(double learningRate);
 
 	//get - (d(post membrane potential) / (pre fire time))
 	double getGradeTemp(double time, double leakage, double EPSC_degrade);

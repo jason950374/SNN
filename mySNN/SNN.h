@@ -10,8 +10,9 @@ using namespace std;
 class SNN {
 public:
 	SNN(vector<unsigned int> neuron_nums, unsigned int input_num);
-	void train(vector<vector<double>> inputs);
+	void train(vector<vector<double>> inputs, vector<unsigned char> label, double learningRate);
 	void test(vector<vector<double>> inputs);
+	unsigned int getOutput(unsigned int index);
 private:
 	unsigned int layerNum;
 	vector<vector<PreSpkEvent>> allOutput; //save output of output layer
@@ -21,6 +22,7 @@ private:
 	vector<Layer> layers;
 	void resetLayers();
 	vector<PreSpkEvent> forward(vector<double> input, bool isTrain = true);
-	void backward(vector<double> input);
-	void applyGrade();
+	void backward(vector<double> input, unsigned int label);
+	void applyGrade(double learningRate);
+	void balance();
 };

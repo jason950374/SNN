@@ -5,7 +5,7 @@
 #include <random>
 #include "SNN.h"
 
-//#define NDEBUG
+#define NDEBUG
 
 using namespace std;
 
@@ -25,13 +25,13 @@ int main(void) {
 			input >> feature[j][i];
 		}
 		input >> s;
-		if (strcmp(s, "Iris-setosa") == 0){
+		if (strcmp(s, "Iris-setosa") == 0) {
 			label[i] = 0;
 		}
-		else if (strcmp(s, "Iris-versicolor") == 0){
+		else if (strcmp(s, "Iris-versicolor") == 0) {
 			label[i] = 1;
 		}
-		else if (strcmp(s, "Iris-virginica") == 0){
+		else if (strcmp(s, "Iris-virginica") == 0) {
 			label[i] = 2;
 		}
 		else {
@@ -43,19 +43,32 @@ int main(void) {
 	normalize(feature, 0, 50);
 	valueToDelay(feature, 0, 50); //larger value have smaller delay
 	shuffle_both(feature, label);
-	
-	vector<unsigned int> neuron_nums = vector<unsigned int>({3, 3});
+
+	vector<unsigned int> neuron_nums = vector<unsigned int>({ 3, 3 });
 
 	SNN snn = SNN(neuron_nums, 4);
-	
+
 	vector<vector<double>> feature_vector(150, vector<double>(4, 0));
 	for (unsigned int i = 0; i < 150; i++) {
 		for (unsigned int j = 0; j < 4; j++)
 			feature_vector[i][j] = feature[j][i];
 	}
-	snn.train(feature_vector);
-	snn.test(feature_vector);
-	
+	vector<unsigned char> label_vector(label, label + 150);
+	for (int j = 0; j < 100; j++) {
+		for (int i = 0; i < 100; i++) {
+			snn.train(feature_vector, label_vector, 0.01);
+		}
+		snn.test(feature_vector);
+		unsigned int correct = 0;
+		unsigned int no = 0;
+		for (unsigned int i = 0; i < 150; i++) {
+			if (label[i] == snn.getOutput(i))
+				correct++;
+			if (snn.getOutput(i) == 3)
+				no++;
+		}
+		cout << "correct: " << correct << " no: " << no << endl;
+	}
 	return 0;
 }
 
@@ -123,11 +136,3 @@ void shuffle_both(double feature[][150], unsigned char * label) {
 		swap(label[i], label[temp]);
 	}
 }
-
-
-
-
-
-
-
-
