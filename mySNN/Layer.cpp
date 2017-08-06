@@ -94,40 +94,41 @@ PreSpkEvent Layer::postSynEvent(PostSpkEvent inputEvent, double endTime, bool is
 
 	// get max time
 	double tmax;
-	tmax = beginTime + log(leakage_coe[inputEvent.postIndex] / EPSC_degrade_coe[inputEvent.postIndex]) / (EPSC_degrade-leakage);
+	tmax = beginTime + log(EPSC_degrade / leakage)
+		/ (EPSC_degrade * EPSC_degrade_coe[inputEvent.postIndex] - (leakage * leakage_coe[inputEvent.postIndex]));
 	endTime = min(tmax, endTime);
+	assert(endTime > beginTime);
 	double value_begin;
 	//TODO last time
-	value_begin = leakage_coe[inputEvent.postIndex] * exp(-leakage*beginTime)
-		- EPSC_degrade_coe[inputEvent.postIndex] *exp(-EPSC_degrade*beginTime);
+	value_begin = leakage_coe[inputEvent.postIndex] - EPSC_degrade_coe[inputEvent.postIndex];
 	assert(value_begin < threshold[inputEvent.postIndex]);
-	double value_end = leakage_coe[inputEvent.postIndex] *exp(-leakage*endTime) 
-		- EPSC_degrade_coe[inputEvent.postIndex] *exp(-EPSC_degrade*endTime);
+	double value_end = leakage_coe[inputEvent.postIndex] *exp(-leakage*(endTime - beginTime))
+		- EPSC_degrade_coe[inputEvent.postIndex] *exp(-EPSC_degrade*(endTime - beginTime));
 	if (value_end < threshold[inputEvent.postIndex]) {
 		preSpkEvent.time = -1;
 		return preSpkEvent;
 	}
-
+	double lowTime = beginTime;
 	// get spiketime
-	while (abs(endTime - beginTime) > 0.01 /*precision*/) {
+	while (abs(endTime - lowTime) > 0.01 /*precision*/) {
 		double slope_up;
 		//Derivative at t = begin
-		slope_up = leakage_coe[inputEvent.postIndex] * leakage * exp(-leakage*beginTime) -
-			EPSC_degrade_coe[inputEvent.postIndex] * EPSC_degrade * exp(-EPSC_degrade*beginTime);
+		slope_up = EPSC_degrade_coe[inputEvent.postIndex] * EPSC_degrade * exp(-EPSC_degrade*(lowTime - beginTime))
+			- leakage_coe[inputEvent.postIndex] * leakage * exp(-leakage*(lowTime - beginTime));
 		double slope_below;
 		//slope of the line from curve(beginTime) to curve(endTime)
-		slope_below = (value_end - value_begin) / (endTime - beginTime);
+		slope_below = (value_end - value_begin) / (endTime - lowTime);
 
 		// update according to the intersection of threshold and approximate line
-		beginTime += (threshold[inputEvent.postIndex] - value_begin) / slope_up;
-		endTime = (threshold[inputEvent.postIndex] - value_begin) / slope_below + beginTime;
-		value_begin = leakage_coe[inputEvent.postIndex] *exp(-leakage*beginTime) 
-			- EPSC_degrade_coe[inputEvent.postIndex] *exp(-EPSC_degrade*beginTime);
+		lowTime += (threshold[inputEvent.postIndex] - value_begin) / slope_up;
+		endTime = (threshold[inputEvent.postIndex] - value_begin) / slope_below + lowTime;
+		value_begin = leakage_coe[inputEvent.postIndex] *exp(-leakage*(lowTime - beginTime))
+			- EPSC_degrade_coe[inputEvent.postIndex] *exp(-EPSC_degrade*(lowTime - beginTime));
 		value_end = leakage_coe[inputEvent.postIndex] *exp(-leakage*endTime) 
 			- EPSC_degrade_coe[inputEvent.postIndex] *exp(-EPSC_degrade*endTime);
 	}
 	preSpkEvent.preIndex = inputEvent.postIndex;
-	preSpkEvent.time = beginTime;
+	preSpkEvent.time = lowTime;
 	if (isTrain) {
 		sendEvent[preSpkEvent.preIndex].push_back(preSpkEvent);
 	}
