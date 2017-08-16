@@ -83,10 +83,20 @@ vector<PreSpkEvent> SNN::forward(vector<double> input, bool isTrain){
 		else {
 			secondEvent.time = numeric_limits<double>::max();
 		}
-		PreSpkEvent newEvent = layers[curEvent.layer].postSynEvent(curEvent, secondEvent.time, isTrain);
+		PreSpkEvent newEvent;
+		if (layers[curEvent.layer].getStall(curEvent.postIndex)) {
+			newEvent = layers[curEvent.layer].sovleStall(curEvent.postIndex, secondEvent.time, isTrain);
+			eventPool.push(curEvent); //curEvent hasn't finished, push it back
+		}
+		else if (curEvent.layer == secondEvent.layer && curEvent.postIndex == secondEvent.postIndex) {
+			newEvent = layers[curEvent.layer].postSynEvent(curEvent, secondEvent.time, isTrain, false);
+		}
+		else{
+			newEvent = layers[curEvent.layer].postSynEvent(curEvent, secondEvent.time, isTrain);
+		}
 		newEvent.layer = curEvent.layer + 1;
-		// not output
 		if (newEvent.time >= 0) {
+			// not output
 			if (newEvent.layer < layerNum) {
 				vector<PostSpkEvent> newEvents = layers[newEvent.layer].preSynEvent(newEvent);
 				for (auto it = newEvents.begin(); it < newEvents.end(); it++) {

@@ -51,7 +51,7 @@ void Synapse::resetGrade(){
 void Synapse::applyGrade(double learningRate){
 	assert(!isnan(gradeDelay));
 	assert(!isnan(gradeWeight));
-	//TODO diff learningRate for delay & weight
+	//TODO diff learningRate for delay & weight ??
 	delay = delay - 0.01*learningRate * gradeDelay;
 	weight = weight - learningRate * gradeWeight;
 	//clip

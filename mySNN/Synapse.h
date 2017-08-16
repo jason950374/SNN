@@ -26,5 +26,3 @@ private:
 	double gradeWeight;
 };
 
-
-

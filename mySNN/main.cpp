@@ -55,7 +55,7 @@ int main(void) {
 	}
 	vector<unsigned char> label_vector(label, label + 150);
 	for (int j = 0; j < 100; j++) {
-		for (int i = 0; i < 100; i++) {
+		for (int i = 0; i < 1; i++) {
 			snn.train(feature_vector, label_vector, 0.01);
 		}
 		snn.test(feature_vector);
