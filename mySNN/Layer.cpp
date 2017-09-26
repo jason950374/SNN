@@ -39,7 +39,6 @@ Layer::Layer(unsigned int neuronAmount, unsigned int prLayerNeuronAmount){
 	EPSC_degrade_coe = vector<double>(neuronAmount, 0);
 
 	sendEvent = vector<vector<PreSpkEvent>>(neuronAmount, vector<PreSpkEvent>());
-	stalls = vector<bool>(neuronAmount, false);
 	lastUpdateTime = vector<double>(neuronAmount, 0);
 }
 
@@ -64,7 +63,6 @@ void Layer::resetLayer(){
 			synapses[j][i].resetGrade();
 		}
 	}
-	stalls = vector<bool>(neuronAmount, false);
 	lastUpdateTime = vector<double>(neuronAmount, 0);
 }
 
@@ -78,7 +76,7 @@ vector<PostSpkEvent> Layer::preSynEvent(PreSpkEvent inputEvent){
 	return postSpkEvents;
 }
 
-PreSpkEvent Layer::postSynEvent(PostSpkEvent inputEvent, double endTime, bool isTrain, bool isStall){
+PreSpkEvent Layer::postSynEvent(PostSpkEvent inputEvent, double endTime, bool isTrain){
 	PreSpkEvent preSpkEvent;
 	// get curve
 	double beginTime = inputEvent.time;
@@ -112,8 +110,6 @@ PreSpkEvent Layer::postSynEvent(PostSpkEvent inputEvent, double endTime, bool is
 
 	if (value_end < threshold[inputEvent.postIndex]) {
 		preSpkEvent.time = -1;
-		if (isStall && endTime != tmax)
-			stalls[inputEvent.postIndex] = true;
 		return preSpkEvent;
 	}
 	double spikeTime = getSpiketime(beginTime, endTime, value_begin, value_end, inputEvent.postIndex, 0.001);
@@ -128,40 +124,6 @@ PreSpkEvent Layer::postSynEvent(PostSpkEvent inputEvent, double endTime, bool is
 
 	spikeCnt[preSpkEvent.preIndex]++;
 	assert(preSpkEvent.time >= inputEvent.time);
-	return preSpkEvent;
-}
-
-PreSpkEvent Layer::sovleStall(int index, double endTime, bool isTrain) {
-	stalls[index] = false;
-	PreSpkEvent preSpkEvent;
-	double beginTime = lastUpdateTime[index];
-	double tmax;
-	tmax = beginTime + log(EPSC_degrade / leakage)
-		/ (EPSC_degrade * EPSC_degrade_coe[index] - (leakage * leakage_coe[index]));
-	endTime = min(tmax, endTime);
-	assert(endTime > beginTime);
-
-	double value_begin = leakage_coe[index] - EPSC_degrade_coe[index];
-	double value_end = leakage_coe[index] * exp(-leakage*(endTime - beginTime))
-		- EPSC_degrade_coe[index] * exp(-EPSC_degrade*(endTime - beginTime));
-	assert(value_begin < threshold[index]);
-
-	if (value_end < threshold[index]) {
-		preSpkEvent.time = -1;
-		return preSpkEvent;
-	}
-	double spikeTime = getSpiketime(beginTime, endTime, value_begin, value_end, index, 0.001);
-	preSpkEvent.preIndex = index;
-	preSpkEvent.time = spikeTime;
-	if (isTrain) {
-		sendEvent[preSpkEvent.preIndex].push_back(preSpkEvent);
-	}
-	// reset neuron after spike
-	leakage_coe[index] = 0;
-	EPSC_degrade_coe[index] = 0;
-
-	spikeCnt[preSpkEvent.preIndex]++;
-	assert(beginTime <= preSpkEvent.time);
 	return preSpkEvent;
 }
 
@@ -245,10 +207,6 @@ void Layer::balance(){
 
 unsigned int Layer::getNeuronAmount(){
 	return neuronAmount;
-}
-
-bool Layer::getStall(unsigned int index){
-	return stalls[index];
 }
 
 double Layer::getSpiketime(double beginTime, double endTime, double value_begin, double value_end, int index, double precision){

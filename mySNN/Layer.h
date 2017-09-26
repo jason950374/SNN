@@ -16,7 +16,7 @@ public:
 	Layer(unsigned int neuronAmount, unsigned int prLayerNeuronAmount);
 	void resetLayer();
 	vector<PostSpkEvent> preSynEvent(PreSpkEvent inputEvent);
-	PreSpkEvent postSynEvent(PostSpkEvent inputEvent, double endTime, bool isTrain = true, bool isStall = true);
+	PreSpkEvent postSynEvent(PostSpkEvent inputEvent, double endTime, bool isTrain = true);
 	vector<double> getGrade(vector<double> grade_pre, vector<vector<NodeReceiveBP>> preNodes, vector<vector<NodeSentBP>> postNodes);
 	
 	//get NodeReceiveBP-NodeSentBP relation acording to relative time of sent and receive spike
@@ -28,8 +28,6 @@ public:
 	void applyGrade(double learningRate);
 	void balance();
 	unsigned int getNeuronAmount();
-	bool getStall(unsigned int index);
-	PreSpkEvent Layer::sovleStall(int index, double endTime, bool isTrain);
 private:
 	/******************************** member ****************************************/
 	unsigned int neuronAmount;
@@ -45,9 +43,7 @@ private:
 	vector<unsigned int> spikeCnt;
 	vector<double> threshold;
 	vector<double> gradeThreshold;
-
-	// if second event is not same index, stall the neuron and set this flag true
-	vector<bool> stalls;
+	
 	vector<double> lastUpdateTime;
 
 	/******************************** method ****************************************/
