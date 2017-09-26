@@ -85,12 +85,11 @@ vector<PreSpkEvent> SNN::forward(vector<double> input, bool isTrain){
 		}
 		PreSpkEvent newEvent;
 		if (curEvent.layer == secondEvent.layer && curEvent.postIndex == secondEvent.postIndex) {
-			newEvent = layers[curEvent.layer].postSynEvent(curEvent, secondEvent.time, isTrain);
+			newEvent = layers[curEvent.layer].postSynEvent(curEvent, secondEvent, isTrain);
 		}
 		else{
-			newEvent = layers[curEvent.layer].postSynEvent(curEvent, secondEvent.time, isTrain);
+			newEvent = layers[curEvent.layer].postSynEvent(curEvent, secondEvent, isTrain);
 		}
-		newEvent.layer = curEvent.layer + 1;
 		if (newEvent.time >= 0) {
 			// not output
 			if (newEvent.layer < layerNum) {

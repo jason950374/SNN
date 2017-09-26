@@ -4,6 +4,7 @@
 #include <chrono>
 #include <random>
 #include <assert.h>
+#include <limits>
 #include "Layer.h"
 #include "SpkEvent.h"
 #include "NodeBP.h"
@@ -68,25 +69,38 @@ void Layer::resetLayer(){
 
 vector<PostSpkEvent> Layer::preSynEvent(PreSpkEvent inputEvent){
 	vector<PostSpkEvent> postSpkEvents;
-	for (unsigned int i = 0; i < neuronAmount; i++) {
-		PostSpkEvent temp = synapses[inputEvent.preIndex][i].preSynEvent(inputEvent);
-		temp.postIndex = i;
+	if (inputEvent.pseudo) {
+		PostSpkEvent temp;
+		temp.layer    = inputEvent.layer;
+		temp.time = inputEvent.time;
+		temp.strenth = 0;
+		temp.preIndex = UINT_MAX;
+		temp.postIndex = inputEvent.preIndex;
 		postSpkEvents.push_back(temp);
+	}
+	else {
+		for (unsigned int i = 0; i < neuronAmount; i++) {
+			PostSpkEvent temp = synapses[inputEvent.preIndex][i].preSynEvent(inputEvent);
+			temp.postIndex = i;
+			postSpkEvents.push_back(temp);
+		}
 	}
 	return postSpkEvents;
 }
 
-PreSpkEvent Layer::postSynEvent(PostSpkEvent inputEvent, double endTime, bool isTrain){
+PreSpkEvent Layer::postSynEvent(PostSpkEvent inputEvent, PostSpkEvent secondEvent, bool isTrain){
 	PreSpkEvent preSpkEvent;
 	// get curve
 	double beginTime = inputEvent.time;
 	assert(inputEvent.time >= 0);
 
 	if (isTrain) {
-		finishedEvent[inputEvent.postIndex].push_back(inputEvent);
-		finishedEventRef[inputEvent.preIndex][inputEvent.postIndex].push_back(finishedEvent[inputEvent.postIndex].size() - 1);
+		if (inputEvent.preIndex != UINT_MAX) {
+			finishedEvent[inputEvent.postIndex].push_back(inputEvent);
+			finishedEventRef[inputEvent.preIndex][inputEvent.postIndex].push_back(finishedEvent[inputEvent.postIndex].size() - 1);
+		}
 	}
-	assert(beginTime > lastUpdateTime[inputEvent.postIndex]);
+	assert(beginTime >= lastUpdateTime[inputEvent.postIndex]);
 
 	leakage_coe[inputEvent.postIndex] = leakage_coe[inputEvent.postIndex] * exp(-leakage * (beginTime - lastUpdateTime[inputEvent.postIndex]));
 	EPSC_degrade_coe[inputEvent.postIndex] = EPSC_degrade_coe[inputEvent.postIndex] * exp(-EPSC_degrade * (beginTime - lastUpdateTime[inputEvent.postIndex]));
@@ -100,8 +114,8 @@ PreSpkEvent Layer::postSynEvent(PostSpkEvent inputEvent, double endTime, bool is
 	double tmax;
 	tmax = beginTime + log(EPSC_degrade / leakage)
 		/ (EPSC_degrade * EPSC_degrade_coe[inputEvent.postIndex] - (leakage * leakage_coe[inputEvent.postIndex]));
-	endTime = min(tmax, endTime);
-	assert(endTime > beginTime);
+	double endTime = min(tmax, secondEvent.time);
+	assert(endTime >= beginTime);
 
 	double value_begin = leakage_coe[inputEvent.postIndex] - EPSC_degrade_coe[inputEvent.postIndex];
 	double value_end = leakage_coe[inputEvent.postIndex] *exp(-leakage*(endTime - beginTime))
@@ -109,7 +123,15 @@ PreSpkEvent Layer::postSynEvent(PostSpkEvent inputEvent, double endTime, bool is
 	assert(value_begin < threshold[inputEvent.postIndex]);
 
 	if (value_end < threshold[inputEvent.postIndex]) {
-		preSpkEvent.time = -1;
+		if (endTime < tmax && (inputEvent.postIndex != secondEvent.postIndex) && secondEvent.preIndex != UINT_MAX) {
+			preSpkEvent.pseudo = true;
+			preSpkEvent.time = endTime;
+			preSpkEvent.preIndex = inputEvent.postIndex;
+			preSpkEvent.layer = inputEvent.layer;
+		}
+		else {
+			preSpkEvent.time = -1;
+		}
 		return preSpkEvent;
 	}
 	double spikeTime = getSpiketime(beginTime, endTime, value_begin, value_end, inputEvent.postIndex, 0.001);
@@ -124,6 +146,7 @@ PreSpkEvent Layer::postSynEvent(PostSpkEvent inputEvent, double endTime, bool is
 
 	spikeCnt[preSpkEvent.preIndex]++;
 	assert(preSpkEvent.time >= inputEvent.time);
+	preSpkEvent.layer = inputEvent.layer + 1;
 	return preSpkEvent;
 }
 

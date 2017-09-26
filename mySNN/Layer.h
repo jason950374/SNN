@@ -16,7 +16,7 @@ public:
 	Layer(unsigned int neuronAmount, unsigned int prLayerNeuronAmount);
 	void resetLayer();
 	vector<PostSpkEvent> preSynEvent(PreSpkEvent inputEvent);
-	PreSpkEvent postSynEvent(PostSpkEvent inputEvent, double endTime, bool isTrain = true);
+	PreSpkEvent postSynEvent(PostSpkEvent inputEvent, PostSpkEvent secondEvent, bool isTrain = true);
 	vector<double> getGrade(vector<double> grade_pre, vector<vector<NodeReceiveBP>> preNodes, vector<vector<NodeSentBP>> postNodes);
 	
 	//get NodeReceiveBP-NodeSentBP relation acording to relative time of sent and receive spike

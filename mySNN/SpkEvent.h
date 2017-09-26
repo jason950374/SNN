@@ -15,9 +15,10 @@ bool operator <(const PostSpkEvent& e1, const PostSpkEvent& e2);
 bool operator >(const PostSpkEvent& e1, const PostSpkEvent& e2);
 
 //temparary event
-//turn to PostSpkEvent after Synapse preSynEvent
+//turn to PostSpkEvent after Synapse::preSynEvent
 class PreSpkEvent {
 public:
+	bool pseudo = false;
 	double time;
 	//location
 	unsigned int layer; //belong to post-neuron
