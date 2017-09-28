@@ -18,11 +18,27 @@ private:
 	vector<vector<PreSpkEvent>> allOutput; //save output of output layer
 	                                       // [input index][event order]
 	vector<double> outputTime;             //for training
-	priority_queue<PostSpkEvent, vector<PostSpkEvent>, greater<PostSpkEvent>> eventPool;
 	vector<Layer> layers;
 	void resetLayers();
 	vector<PreSpkEvent> forward(vector<double> input, bool isTrain = true);
 	void backward(vector<double> input, unsigned int label);
 	void applyGrade(double learningRate);
 	void balance();
+
+	class EventPool {
+	public:
+		EventPool();
+		Event & top(); //pass by reference, be carefull before doing pop
+		PostSpkEvent topPost();
+		void pop();
+		void reset();
+		unsigned char push(Event &e);
+		bool empty();
+		bool emptyPost();
+	private:
+		priority_queue<PostSpkEvent, vector<PostSpkEvent>, greater<PostSpkEvent>> postEventPool;
+		priority_queue<CheckEvent, vector<CheckEvent>, greater<CheckEvent>> checkEventPool;
+	};
+
+	EventPool eventPool;
 };

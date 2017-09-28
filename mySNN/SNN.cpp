@@ -16,7 +16,7 @@ SNN::SNN(vector<unsigned int> neuron_nums, unsigned int input_num){
 	layerNum = layers.size();
 	allOutput = vector<vector<PreSpkEvent>>(*prev(neuron_nums.end()), vector<PreSpkEvent>());
 	outputTime = vector<double>(*prev(neuron_nums.end()), INFINITY);
-	eventPool = priority_queue<PostSpkEvent, vector<PostSpkEvent>, greater<PostSpkEvent>>();
+	eventPool = EventPool();
 }
 
 void SNN::train(vector<vector<double>> inputs, vector<unsigned char> label, double learningRate){
@@ -54,7 +54,7 @@ unsigned int SNN::getOutput(unsigned int index){
 
 void SNN::resetLayers(){
 	//clear remain event (inference will end when get the result)
-	eventPool = priority_queue<PostSpkEvent, vector<PostSpkEvent>, greater<PostSpkEvent>>();
+	eventPool.reset();
 	for (auto it = layers.begin(); it < layers.end(); it++) {
 		it->resetLayer();
 	}
@@ -69,44 +69,49 @@ vector<PreSpkEvent> SNN::forward(vector<double> input, bool isTrain){
 		newEvent.preIndex = i;
 		newEvent.time = *it;
 		vector<PostSpkEvent> newEvents = layers[0].preSynEvent(newEvent);
-		for (auto it = newEvents.begin(); it < newEvents.end(); it++) {
-			eventPool.push(*it);
+		for (auto it2 = newEvents.begin(); it2 < newEvents.end(); it2++) {
+			int err = eventPool.push(*it2);
+			assert(err == 0);
 		}
 	}
 	while (!eventPool.empty()) {
-		PostSpkEvent curEvent = eventPool.top();
+		Event & curEvent = eventPool.top();
 		eventPool.pop();
 		PostSpkEvent secondEvent;
-		if (!eventPool.empty()) {
-			secondEvent = eventPool.top();
+		if (!eventPool.emptyPost()) {
+			secondEvent = eventPool.topPost();
 		}
 		else {
 			secondEvent.time = numeric_limits<double>::max();
 		}
-		PreSpkEvent newEvent;
-		if (curEvent.layer == secondEvent.layer && curEvent.postIndex == secondEvent.postIndex) {
-			newEvent = layers[curEvent.layer].postSynEvent(curEvent, secondEvent, isTrain);
-		}
-		else{
-			newEvent = layers[curEvent.layer].postSynEvent(curEvent, secondEvent, isTrain);
-		}
+		Event & newEvent = layers[curEvent.layer].postSynEvent(curEvent, secondEvent, isTrain);
+
 		if (newEvent.time >= 0) {
 			// not output
 			if (newEvent.layer < layerNum) {
-				vector<PostSpkEvent> newEvents = layers[newEvent.layer].preSynEvent(newEvent);
-				for (auto it = newEvents.begin(); it < newEvents.end(); it++) {
-					assert(it->time >= 0);
-					eventPool.push(*it);
+				if (newEvent.ID == PreSpkEventID){
+					vector<PostSpkEvent> newEvents = layers[newEvent.layer].preSynEvent(*dynamic_cast<PreSpkEvent*> (&newEvent));
+					for (auto it = newEvents.begin(); it < newEvents.end(); it++) {
+						assert(it->time >= 0);
+						int err = eventPool.push(*it);
+						assert(err == 0);
+					}
+				}
+				else if (newEvent.ID == CheckEventID) {
+					int err = eventPool.push(*dynamic_cast<CheckEvent*> (&newEvent));
+					assert(err == 0);
 				}
 			}
 			else {
-				output.push_back(newEvent);
+				output.push_back(*dynamic_cast<PreSpkEvent*> (&newEvent));
 				if (!isTrain) {
 					//inference, just need first spike
 					return output;
 				}
 			}
 		}
+		delete &newEvent;
+		delete &curEvent;
 	}
 	return output;
 }
@@ -159,4 +164,81 @@ void SNN::balance() {
 	for (auto it = layers.begin(); it < layers.end(); it++) {
 		it->balance();
 	}
+}
+
+SNN::EventPool::EventPool(){
+	postEventPool = priority_queue<PostSpkEvent, vector<PostSpkEvent>, greater<PostSpkEvent>>();
+	checkEventPool = priority_queue<CheckEvent, vector<CheckEvent>, greater<CheckEvent>>();
+}
+
+Event & SNN::EventPool::top() {
+	PostSpkEvent & postEvent = *(new PostSpkEvent());
+	CheckEvent & checkEvent = *(new CheckEvent());;
+	if (postEventPool.empty()) {
+		checkEvent = checkEventPool.top();
+		delete &postEvent;
+		return checkEvent;
+	}
+	postEvent = postEventPool.top();
+	if (checkEventPool.empty()) {
+		delete &checkEvent;
+		return postEvent;
+	}
+	checkEvent = checkEventPool.top();
+	if (checkEvent < postEvent) {
+		delete &postEvent;
+		return checkEvent;
+	}
+	delete &checkEvent;
+	return postEvent;
+}
+
+void SNN::EventPool::pop() {
+	if (postEventPool.empty()) {
+		checkEventPool.pop();
+		return;
+	}
+	if (checkEventPool.empty()) {
+		postEventPool.pop();
+		return;
+	}
+
+	PostSpkEvent postEvent = postEventPool.top();
+	CheckEvent checkEvent = checkEventPool.top();
+	if (checkEvent < postEvent) {
+		checkEventPool.pop();
+		return;
+	}
+	postEventPool.pop();
+	return;
+}
+
+PostSpkEvent SNN::EventPool::topPost(){
+	return postEventPool.top();
+}
+
+void SNN::EventPool::reset(){
+	postEventPool = priority_queue<PostSpkEvent, vector<PostSpkEvent>, greater<PostSpkEvent>>();
+	checkEventPool = priority_queue<CheckEvent, vector<CheckEvent>, greater<CheckEvent>>();
+}
+
+unsigned char SNN::EventPool::push(Event &e){
+	if (e.ID == PostSpkEventID) {
+		postEventPool.push(*dynamic_cast<PostSpkEvent *> (&e));
+	}
+	else if(e.ID == CheckEventID){
+		checkEventPool.push(*dynamic_cast<CheckEvent *> (&e));
+	}
+	else {
+		return -1;
+	}
+	return 0;
+}
+
+bool SNN::EventPool::empty(){
+	return postEventPool.empty() && checkEventPool.empty();
+}
+
+bool SNN::EventPool::emptyPost(){
+	return postEventPool.empty();
 }

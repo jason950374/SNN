@@ -69,80 +69,91 @@ void Layer::resetLayer(){
 
 vector<PostSpkEvent> Layer::preSynEvent(PreSpkEvent inputEvent){
 	vector<PostSpkEvent> postSpkEvents;
-	if (inputEvent.pseudo) {
-		PostSpkEvent temp;
-		temp.layer    = inputEvent.layer;
-		temp.time = inputEvent.time;
-		temp.strenth = 0;
-		temp.preIndex = UINT_MAX;
-		temp.postIndex = inputEvent.preIndex;
+	for (unsigned int i = 0; i < neuronAmount; i++) {
+		PostSpkEvent temp = synapses[inputEvent.preIndex][i].preSynEvent(inputEvent);
+		temp.postIndex = i;
 		postSpkEvents.push_back(temp);
-	}
-	else {
-		for (unsigned int i = 0; i < neuronAmount; i++) {
-			PostSpkEvent temp = synapses[inputEvent.preIndex][i].preSynEvent(inputEvent);
-			temp.postIndex = i;
-			postSpkEvents.push_back(temp);
-		}
 	}
 	return postSpkEvents;
 }
 
-PreSpkEvent Layer::postSynEvent(PostSpkEvent inputEvent, PostSpkEvent secondEvent, bool isTrain){
-	PreSpkEvent preSpkEvent;
+Event & Layer::postSynEvent(Event &inputEvent, PostSpkEvent secondEvent, bool isTrain){
 	// get curve
 	double beginTime = inputEvent.time;
 	assert(inputEvent.time >= 0);
+	unsigned int inputIndex;
+	if (inputEvent.ID == PostSpkEventID) {
+		inputIndex = dynamic_cast<PostSpkEvent *>(&inputEvent)->postIndex;
+	}
+	else if(inputEvent.ID == CheckEventID)	{
+		inputIndex = dynamic_cast<CheckEvent *>(&inputEvent)->index;
+	}
 
 	if (isTrain) {
-		if (inputEvent.preIndex != UINT_MAX) {
-			finishedEvent[inputEvent.postIndex].push_back(inputEvent);
-			finishedEventRef[inputEvent.preIndex][inputEvent.postIndex].push_back(finishedEvent[inputEvent.postIndex].size() - 1);
+		if (inputEvent.ID  == PostSpkEventID) {
+			PostSpkEvent temp = *dynamic_cast<PostSpkEvent *>(&inputEvent);
+			finishedEvent[temp.postIndex].push_back(temp);
+			finishedEventRef[temp.preIndex][temp.postIndex].push_back(finishedEvent[temp.postIndex].size() - 1);
 		}
 	}
-	assert(beginTime >= lastUpdateTime[inputEvent.postIndex]);
+	assert(beginTime >= lastUpdateTime[inputIndex]);
 
-	leakage_coe[inputEvent.postIndex] = leakage_coe[inputEvent.postIndex] * exp(-leakage * (beginTime - lastUpdateTime[inputEvent.postIndex]));
-	EPSC_degrade_coe[inputEvent.postIndex] = EPSC_degrade_coe[inputEvent.postIndex] * exp(-EPSC_degrade * (beginTime - lastUpdateTime[inputEvent.postIndex]));
+	leakage_coe[inputIndex] = leakage_coe[inputIndex] * exp(-leakage * (beginTime - lastUpdateTime[inputIndex]));
+	EPSC_degrade_coe[inputIndex] = EPSC_degrade_coe[inputIndex] * exp(-EPSC_degrade * (beginTime - lastUpdateTime[inputIndex]));
 
-	leakage_coe[inputEvent.postIndex] += inputEvent.strenth;
-	EPSC_degrade_coe[inputEvent.postIndex] += inputEvent.strenth;
+	if (inputEvent.ID == PostSpkEventID) {
+		leakage_coe[inputIndex] += (dynamic_cast<PostSpkEvent *> (&inputEvent))->strenth;
+		EPSC_degrade_coe[inputIndex] += (dynamic_cast<PostSpkEvent *> (&inputEvent))->strenth;
+	}
 
-	lastUpdateTime[inputEvent.postIndex] = beginTime;
+	lastUpdateTime[inputIndex] = beginTime;
 
 	// get max time
 	double tmax;
 	tmax = beginTime + log(EPSC_degrade / leakage)
-		/ (EPSC_degrade * EPSC_degrade_coe[inputEvent.postIndex] - (leakage * leakage_coe[inputEvent.postIndex]));
-	double endTime = min(tmax, secondEvent.time);
+		/ (EPSC_degrade * EPSC_degrade_coe[inputIndex] - (leakage * leakage_coe[inputIndex]));
+	double endTime;
+	endTime = min(tmax, secondEvent.time);
+	if (tmax < beginTime || isinf(tmax)) {
+		// refractory period ??
+		CheckEvent & checkEvent = *new CheckEvent();
+		checkEvent.index = inputIndex;
+		checkEvent.layer = inputEvent.layer;
+		if(secondEvent.time > (numeric_limits<double>::max() - 0.1))
+			checkEvent.time = secondEvent.time;
+		else
+			checkEvent.time = -1;
+		return checkEvent;
+	}
 	assert(endTime >= beginTime);
 
-	double value_begin = leakage_coe[inputEvent.postIndex] - EPSC_degrade_coe[inputEvent.postIndex];
-	double value_end = leakage_coe[inputEvent.postIndex] *exp(-leakage*(endTime - beginTime))
-		- EPSC_degrade_coe[inputEvent.postIndex] *exp(-EPSC_degrade*(endTime - beginTime));
-	assert(value_begin < threshold[inputEvent.postIndex]);
+	double value_begin = leakage_coe[inputIndex] - EPSC_degrade_coe[inputIndex];
+	double value_end = leakage_coe[inputIndex] *exp(-leakage*(endTime - beginTime))
+		- EPSC_degrade_coe[inputIndex] *exp(-EPSC_degrade*(endTime - beginTime));
+	assert(value_begin < threshold[inputIndex]);
 
-	if (value_end < threshold[inputEvent.postIndex]) {
-		if (endTime < tmax && (inputEvent.postIndex != secondEvent.postIndex) && secondEvent.preIndex != UINT_MAX) {
-			preSpkEvent.pseudo = true;
-			preSpkEvent.time = endTime;
-			preSpkEvent.preIndex = inputEvent.postIndex;
-			preSpkEvent.layer = inputEvent.layer;
+	if (value_end < threshold[inputIndex]) {
+		CheckEvent & checkEvent = *new CheckEvent();
+		if (endTime < tmax && (inputIndex != secondEvent.postIndex || inputEvent.layer != secondEvent.layer)) {
+			checkEvent.time = endTime;
+			checkEvent.index = inputIndex;
+			checkEvent.layer = inputEvent.layer;
 		}
 		else {
-			preSpkEvent.time = -1;
+			checkEvent.time = -1;
 		}
-		return preSpkEvent;
+		return checkEvent;
 	}
-	double spikeTime = getSpiketime(beginTime, endTime, value_begin, value_end, inputEvent.postIndex, 0.001);
-	preSpkEvent.preIndex = inputEvent.postIndex;
+	PreSpkEvent & preSpkEvent = *new PreSpkEvent();
+	double spikeTime = getSpiketime(beginTime, endTime, value_begin, value_end, inputIndex, 0.001);
+	preSpkEvent.preIndex = inputIndex;
 	preSpkEvent.time = spikeTime;
 	if (isTrain) {
 		sendEvent[preSpkEvent.preIndex].push_back(preSpkEvent);
 	}
 	// reset neuron after spike
-	leakage_coe[inputEvent.postIndex] = 0;
-	EPSC_degrade_coe[inputEvent.postIndex] = 0;
+	leakage_coe[inputIndex] = 0;
+	EPSC_degrade_coe[inputIndex] = 0;
 
 	spikeCnt[preSpkEvent.preIndex]++;
 	assert(preSpkEvent.time >= inputEvent.time);
@@ -253,7 +264,7 @@ double Layer::getSpiketime(double beginTime, double endTime, double value_begin,
 		value_end = leakage_coe[index] * exp(-leakage*(highTime - beginTime))
 			- EPSC_degrade_coe[index] * exp(-EPSC_degrade*(highTime - beginTime));
 	}
-	assert(lowTime > beginTime);
+	assert(lowTime >= beginTime);
 	return lowTime;
 }
 
