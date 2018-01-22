@@ -146,6 +146,11 @@ Event & Layer::postSynEvent(Event &inputEvent, PostSpkEvent secondEvent, bool is
 	}
 	PreSpkEvent & preSpkEvent = *new PreSpkEvent();
 	double spikeTime = getSpiketime(beginTime, endTime, value_begin, value_end, inputIndex, 0.001);
+	assert(((leakage_coe[inputIndex] * exp(-leakage * (spikeTime - lastUpdateTime[inputIndex]))
+		- EPSC_degrade_coe[inputIndex] * exp(-EPSC_degrade * (spikeTime - lastUpdateTime[inputIndex])) 
+		- threshold[inputIndex])) <  0.001);
+
+
 	preSpkEvent.preIndex = inputIndex;
 	preSpkEvent.time = spikeTime;
 	if (isTrain) {

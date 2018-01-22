@@ -84,6 +84,7 @@ vector<PreSpkEvent> SNN::forward(vector<double> input, bool isTrain){
 		else {
 			secondEvent.time = numeric_limits<double>::max();
 		}
+		//printf("layer: %d \n", curEvent.layer);
 		Event & newEvent = layers[curEvent.layer].postSynEvent(curEvent, secondEvent, isTrain);
 
 		if (newEvent.time >= 0) {
